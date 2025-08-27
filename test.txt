@@ -1,0 +1,47 @@
+const takePicture = async () => {
+  if (!cameraRef.current) return;
+
+  try {
+    setIsAnalyzing(true);
+    
+    const photo = await cameraRef.current.takePictureAsync({
+      quality: 0.8,
+      base64: false, // MLKit works with URIs, no need for base64
+      exif: false,
+    });
+
+    setCapturedImage(photo);
+
+    // Use MLKit for analysis
+    const result = await analyzeRecyclingSymbol(photo);
+    
+    if (result.symbol) {
+      const recyclingInfo = getRecyclingInfo(result.symbol);
+      setDetectionResult({ ...result, info: recyclingInfo });
+      setShowInfo(true);
+    } else {
+      // Show helpful message with the detected text
+      const message = result.rawText ? 
+        `Text detected: "${result.rawText.substring(0, 50)}..."\n\nNo recycling symbol found. Try positioning the camera closer to the ♻️ symbol.` :
+        'No text detected. Try taking a clearer photo of the recycling symbol with better lighting.';
+        
+      Alert.alert(
+        'No Recycling Symbol Found',
+        message,
+        [
+          { text: 'Tips', onPress: () => showDetectionTips() },
+          { text: 'Try Again', onPress: resetCamera }
+        ]
+      );
+    }
+  } catch (error) {
+    console.error('Camera error:', error);
+    Alert.alert(
+      'Detection Error', 
+      'Failed to analyze image. Make sure you have good lighting and the recycling symbol is clearly visible.',
+      [{ text: 'Try Again', onPress: resetCamera }]
+    );
+  } finally {
+    setIsAnalyzing(false);
+  }
+};

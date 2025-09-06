@@ -1,2 +1,3 @@
 // screens/logs/WasteLogsScreen.js - Waste Logs Management Screen
-export { default } from '../../screens/WasteLogsScreen';
+// Re-export the LogsListScreen that lives in the parent `screens` folder.
+export { default } from "../LogsListScreen";

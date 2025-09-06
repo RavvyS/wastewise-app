@@ -1,5 +1,5 @@
 // screens/home/HomeScreen.js - Main Dashboard Screen
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,14 +7,15 @@ import {
   TouchableOpacity,
   ScrollView,
   SafeAreaView,
-  Alert,
-} from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
+  TextInput,
+  ActivityIndicator,
+} from "react-native";
+import { MaterialIcons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
 
 // Import utilities and styles
-import { getAllWasteLogs, getUserStats } from '../../utils/database';
-import { colors, globalStyles } from '../../styles/globalStyles';
+import { getAllWasteLogs } from "../../utils/database";
+import { colors, globalStyles } from "../../styles/globalStyles";
 
 export default function HomeScreen({ navigation }) {
   const [stats, setStats] = useState({
@@ -23,10 +24,9 @@ export default function HomeScreen({ navigation }) {
     recyclableCount: 0,
     ecoScore: 0,
   });
-
   const [isLoading, setIsLoading] = useState(true);
+  const [query, setQuery] = useState("");
 
-  // Load stats when screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
       loadStats();
@@ -36,23 +36,16 @@ export default function HomeScreen({ navigation }) {
   const loadStats = async () => {
     try {
       setIsLoading(true);
-      
-      // Get all waste logs
       const logs = await getAllWasteLogs();
-      
-      // Calculate this week's logs
+
+      // Compute simple stats
       const weekAgo = new Date();
       weekAgo.setDate(weekAgo.getDate() - 7);
-      
-      const thisWeekLogs = logs.filter(log => 
-        new Date(log.created_at) >= weekAgo
+      const thisWeekLogs = logs.filter(
+        (l) => new Date(l.created_at) >= weekAgo
       );
-
-      // Count recyclable items
-      const recyclableCount = logs.filter(log => log.recyclable).length;
-
-      // Calculate eco score (simple algorithm)
-      const ecoScore = (recyclableCount * 10) + (logs.length * 5);
+      const recyclableCount = logs.filter((l) => l.recyclable).length || 0;
+      const ecoScore = Math.round(recyclableCount * 10 + logs.length * 3);
 
       setStats({
         totalLogs: logs.length,
@@ -60,176 +53,193 @@ export default function HomeScreen({ navigation }) {
         recyclableCount,
         ecoScore,
       });
-      
-    } catch (error) {
-      console.error('Error loading stats:', error);
-      Alert.alert('Error', 'Failed to load statistics');
+    } catch (e) {
+      console.error("Error loading stats", e);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Quick action definitions
   const quickActions = [
     {
-      id: 1,
-      title: '📷 Scan Item',
-      subtitle: 'Use AI to identify recycling symbols',
-      action: () => navigation.navigate('Camera'),
+      id: "scan",
+      label: "Scan",
+      icon: "camera-alt",
+      color: colors.primary,
+      action: () => navigation.navigate("Camera"),
+    },
+    {
+      id: "add",
+      label: "Add Log",
+      icon: "add-circle",
       color: colors.success,
-      icon: 'camera',
+      action: () => navigation.navigate("Logs", { screen: "AddLog" }),
     },
     {
-      id: 2,
-      title: '📝 Add Log',
-      subtitle: 'Manually record waste disposal',
-      action: () => navigation.navigate('Logs', { screen: 'AddLog' }),
+      id: "logs",
+      label: "Logs",
+      icon: "list",
       color: colors.secondary,
-      icon: 'add-circle',
+      action: () => navigation.navigate("Logs"),
     },
     {
-      id: 3,
-      title: '📊 View Logs',
-      subtitle: 'Check your disposal history',
-      action: () => navigation.navigate('Logs'),
-      color: colors.accent,
-      icon: 'bar-chart',
-    },
-    {
-      id: 4,
-      title: '📍 Find Centers',
-      subtitle: 'Locate recycling facilities nearby',
-      action: () => navigation.navigate('Locations'),
-      color: '#9C27B0',
-      icon: 'place',
+      id: "centers",
+      label: "Centers",
+      icon: "place",
+      color: "#9C27B0",
+      action: () => navigation.navigate("Locations"),
     },
   ];
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView 
-        showsVerticalScrollIndicator={false}
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.hello}>Welcome back</Text>
+          <Text style={styles.subHello}>
+            Track your waste & improve your eco score
+          </Text>
+        </View>
+        <TouchableOpacity
+          onPress={() => navigation.navigate("Profile")}
+          style={styles.profileBtn}
+        >
+          <MaterialIcons name="person" size={24} color="white" />
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.searchRow}>
+        <View style={styles.searchBox}>
+          <MaterialIcons name="search" size={20} color="#777" />
+          <TextInput
+            placeholder="Search logs or items"
+            style={styles.searchInput}
+            value={query}
+            onChangeText={setQuery}
+          />
+          <TouchableOpacity
+            onPress={() => {
+              setQuery("");
+            }}
+          >
+            <MaterialIcons name="close" size={18} color="#aaa" />
+          </TouchableOpacity>
+        </View>
+        <TouchableOpacity style={styles.quickIcon} onPress={loadStats}>
+          <MaterialIcons name="refresh" size={22} color={colors.primary} />
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView
         contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
       >
-        {/* Welcome Header */}
-        <View style={styles.welcomeCard}>
-          <Text style={styles.welcomeTitle}>Welcome back! 👋</Text>
-          <Text style={styles.welcomeSubtitle}>
-            Continue your eco-friendly journey
+        <View style={styles.cardsRow}>
+          <View style={[styles.card, styles.shadow]}>
+            <Text style={styles.cardTitle}>Total Items</Text>
+            {isLoading ? (
+              <ActivityIndicator />
+            ) : (
+              <Text style={styles.cardNumber}>{stats.totalLogs}</Text>
+            )}
+            <MaterialIcons
+              name="inventory"
+              size={28}
+              color={colors.secondary}
+              style={styles.cardIcon}
+            />
+          </View>
+
+          <View style={[styles.card, styles.shadow]}>
+            <Text style={styles.cardTitle}>Recycled</Text>
+            {isLoading ? (
+              <ActivityIndicator />
+            ) : (
+              <Text style={styles.cardNumber}>{stats.recyclableCount}</Text>
+            )}
+            <MaterialIcons
+              name="recycling"
+              size={28}
+              color={colors.success}
+              style={styles.cardIcon}
+            />
+          </View>
+        </View>
+
+        <View style={[styles.largeCard, styles.shadow]}>
+          <View style={styles.largeCardHeader}>
+            <Text style={styles.largeTitle}>Eco Score</Text>
+            <Text style={styles.largeScore}>
+              {isLoading ? "—" : stats.ecoScore}
+            </Text>
+          </View>
+          <View style={styles.progressBar}>
+            <View
+              style={[
+                styles.progressFill,
+                { width: `${Math.min((stats.ecoScore / 500) * 100, 100)}%` },
+              ]}
+            />
+          </View>
+          <Text style={styles.progressLabel}>
+            {stats.ecoScore < 100
+              ? "Eco Beginner"
+              : stats.ecoScore < 300
+              ? "Eco Warrior"
+              : "Eco Champion"}
           </Text>
         </View>
 
-        {/* Stats Cards */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statsHeader}>
-            <Text style={styles.sectionTitle}>📈 Your Impact</Text>
-            <TouchableOpacity onPress={loadStats}>
-              <MaterialIcons name="refresh" size={24} color={colors.primary} />
-            </TouchableOpacity>
-          </View>
-          
-          <View style={styles.statsGrid}>
-            <View style={[styles.statCard, { borderLeftColor: colors.secondary }]}>
-              <MaterialIcons name="eco" size={24} color={colors.secondary} />
-              <Text style={styles.statNumber}>{stats.totalLogs}</Text>
-              <Text style={styles.statLabel}>Total Items</Text>
-            </View>
-            
-            <View style={[styles.statCard, { borderLeftColor: colors.success }]}>
-              <MaterialIcons name="recycling" size={24} color={colors.success} />
-              <Text style={styles.statNumber}>{stats.recyclableCount}</Text>
-              <Text style={styles.statLabel}>Recycled</Text>
-            </View>
-            
-            <View style={[styles.statCard, { borderLeftColor: colors.accent }]}>
-              <MaterialIcons name="today" size={24} color={colors.accent} />
-              <Text style={styles.statNumber}>{stats.thisWeek}</Text>
-              <Text style={styles.statLabel}>This Week</Text>
-            </View>
-          </View>
-
-          {/* Eco Score */}
-          <View style={styles.ecoScoreCard}>
-            <View style={styles.ecoScoreHeader}>
-              <MaterialIcons name="emoji-events" size={32} color={colors.accent} />
-              <View style={styles.ecoScoreText}>
-                <Text style={styles.ecoScoreNumber}>{stats.ecoScore}</Text>
-                <Text style={styles.ecoScoreLabel}>Eco Score</Text>
-              </View>
-            </View>
-            <View style={styles.progressBar}>
-              <View 
-                style={[
-                  styles.progressFill, 
-                  { width: `${Math.min((stats.ecoScore / 500) * 100, 100)}%` }
-                ]} 
-              />
-            </View>
-            <Text style={styles.progressText}>
-              {stats.ecoScore < 100 ? 'Eco Beginner' :
-               stats.ecoScore < 300 ? 'Eco Warrior' :
-               stats.ecoScore < 500 ? 'Eco Champion' : 'Eco Master'}
-            </Text>
-          </View>
-        </View>
-
-        {/* Quick Actions */}
-        <View style={styles.actionsContainer}>
-          <Text style={styles.sectionTitle}>🚀 Quick Actions</Text>
-          
-          {quickActions.map((action) => (
+        <View style={styles.actionsGrid}>
+          {quickActions.map((a) => (
             <TouchableOpacity
-              key={action.id}
-              style={[styles.actionCard, { borderLeftColor: action.color }]}
-              onPress={action.action}
-              activeOpacity={0.7}
+              key={a.id}
+              style={[styles.actionBtn, styles.shadow]}
+              onPress={a.action}
+              activeOpacity={0.8}
             >
-              <View style={styles.actionContent}>
-                <View style={[styles.actionIcon, { backgroundColor: `${action.color}20` }]}>
-                  <MaterialIcons name={action.icon} size={28} color={action.color} />
-                </View>
-                <View style={styles.actionText}>
-                  <Text style={styles.actionTitle}>{action.title}</Text>
-                  <Text style={styles.actionSubtitle}>{action.subtitle}</Text>
-                </View>
-                <MaterialIcons name="chevron-right" size={24} color={colors.gray} />
+              <View
+                style={[styles.actionIcon, { backgroundColor: `${a.color}22` }]}
+              >
+                <MaterialIcons name={a.icon} size={24} color={a.color} />
               </View>
+              <Text style={styles.actionLabel}>{a.label}</Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        {/* Recent Activity Preview */}
-        {stats.totalLogs > 0 && (
-          <View style={styles.recentActivity}>
-            <View style={styles.recentHeader}>
-              <Text style={styles.sectionTitle}>⏱️ Recent Activity</Text>
-              <TouchableOpacity onPress={() => navigation.navigate('Logs')}>
-                <Text style={styles.seeAllText}>See All</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.activityPreview}>
-              <MaterialIcons name="history" size={48} color={colors.primary} />
-              <Text style={styles.activityText}>
-                {stats.totalLogs} items logged • {stats.recyclableCount} recycled
-              </Text>
-              <TouchableOpacity 
-                style={styles.viewLogsButton}
-                onPress={() => navigation.navigate('Logs')}
-              >
-                <Text style={styles.viewLogsButtonText}>View All Logs</Text>
-                <MaterialIcons name="arrow-forward" size={16} color={colors.primary} />
-              </TouchableOpacity>
-            </View>
+        <View style={styles.recentContainer}>
+          <View style={styles.recentHeader}>
+            <Text style={styles.sectionTitle}>Recent Activity</Text>
+            <TouchableOpacity onPress={() => navigation.navigate("Logs")}>
+              <Text style={styles.seeAll}>See All</Text>
+            </TouchableOpacity>
           </View>
-        )}
+          <View style={[styles.recentCard, styles.shadow]}>
+            <MaterialIcons name="history" size={36} color={colors.primary} />
+            <View style={styles.recentTextWrap}>
+              <Text style={styles.recentTitle}>
+                {stats.totalLogs} items logged
+              </Text>
+              <Text style={styles.recentSubtitle}>
+                {stats.recyclableCount} recycled • {stats.thisWeek} this week
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={styles.viewBtn}
+              onPress={() => navigation.navigate("Logs")}
+            >
+              <Text style={styles.viewBtnText}>View</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
 
-        {/* Quick Tips */}
-        <View style={styles.tipsContainer}>
-          <Text style={styles.sectionTitle}>💡 Eco Tip of the Day</Text>
-          <View style={styles.tipCard}>
-            <MaterialIcons name="lightbulb" size={24} color={colors.accent} />
+        <View style={styles.tipCardContainer}>
+          <Text style={styles.sectionTitle}>Eco Tip</Text>
+          <View style={[styles.tipCard, styles.shadow]}>
+            <MaterialIcons name="lightbulb" size={22} color={colors.accent} />
             <Text style={styles.tipText}>
-              Rinse containers before recycling to prevent contamination and improve recycling quality!
+              Rinse containers before recycling to reduce contamination.
             </Text>
           </View>
         </View>
@@ -239,14 +249,158 @@ export default function HomeScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
+  container: { flex: 1, backgroundColor: colors.light },
+  header: {
+    padding: 16,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  hello: { fontSize: 20, fontWeight: "700", color: "#222" },
+  subHello: { color: "#666", marginTop: 4 },
+  profileBtn: {
+    backgroundColor: colors.primary,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  searchRow: {
+    flexDirection: "row",
+    paddingHorizontal: 16,
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  searchBox: {
     flex: 1,
-    backgroundColor: colors.light,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "white",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: "#eee",
   },
-  
-  scrollContent: {
-    paddingBottom: 20,
+  searchInput: { marginLeft: 8, flex: 1, height: 36 },
+  quickIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: "white",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#eee",
   },
-
-  // ... keep existing styles from original file beyond shown excerpt
+  scrollContent: { padding: 16, paddingBottom: 40 },
+  cardsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  card: {
+    flex: 1,
+    backgroundColor: "white",
+    padding: 14,
+    borderRadius: 12,
+    marginRight: 8,
+    position: "relative",
+  },
+  cardTitle: { color: "#666", fontSize: 13 },
+  cardNumber: { fontSize: 22, fontWeight: "800", marginTop: 6 },
+  cardIcon: { position: "absolute", right: 12, top: 12 },
+  largeCard: {
+    backgroundColor: "white",
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 12,
+  },
+  largeCardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  largeTitle: { fontSize: 16, fontWeight: "700" },
+  largeScore: { fontSize: 22, fontWeight: "800", color: colors.primary },
+  progressBar: {
+    height: 10,
+    backgroundColor: "#f0f0f0",
+    borderRadius: 10,
+    marginTop: 12,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+  },
+  progressLabel: { marginTop: 8, color: "#666" },
+  actionsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    marginTop: 8,
+  },
+  actionBtn: {
+    width: "48%",
+    backgroundColor: "white",
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 10,
+    alignItems: "center",
+  },
+  actionIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+  },
+  actionLabel: { fontWeight: "700" },
+  recentContainer: { marginTop: 10 },
+  recentHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  sectionTitle: { fontSize: 16, fontWeight: "700" },
+  seeAll: { color: colors.primary },
+  recentCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "white",
+    padding: 12,
+    borderRadius: 12,
+  },
+  recentTextWrap: { marginLeft: 12, flex: 1 },
+  recentTitle: { fontWeight: "700" },
+  recentSubtitle: { color: "#777", marginTop: 4 },
+  viewBtn: {
+    backgroundColor: colors.primary + "22",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  viewBtnText: { color: colors.primary, fontWeight: "700" },
+  tipCardContainer: { marginTop: 14 },
+  tipCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "white",
+    padding: 12,
+    borderRadius: 12,
+  },
+  tipText: { marginLeft: 10, color: "#555" },
+  shadow: {
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 12,
+    elevation: 3,
+  },
 });
